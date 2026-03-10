@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book Clipper · The Bookworm's HQ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #101628;
+    --bg3: #161c32;
+    --gold: #c9a84c;
+    --gold-dim: #8c7535;
+    --gold-faint: #3c3219;
+    --white: #f0f0f5;
+    --light: #c8c8d2;
+    --mid: #82829a;
+    --border: #2a2f45;
+    --green: #4ade80;
+    --red: #f87171;
+    --blue: #60a5fa;
+    --orange: #fbbf24;
+    --card-bg: #121830;
+    --radius: 10px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--light);
+    min-height: 100vh;
+    padding: 16px;
+  }
+
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    padding: 8px 0 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .header h1 { color: var(--gold); font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+  .header p { color: var(--mid); font-size: 12px; margin-top: 2px; }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+  .tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mid);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab:hover { color: var(--light); }
+  .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── Setup ── */
+  .setup-banner {
+    background: var(--bg3);
+    border: 1px solid var(--gold-faint);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .setup-banner h3 { color: var(--gold); font-size: 14px; margin-bottom: 8px; }
+  .setup-banner p { font-size: 12px; color: var(--mid); margin-bottom: 10px; line-height: 1.5; }
+  .setup-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .setup-row label { font-size: 12px; color: var(--mid); min-width: 100px; }
+  .setup-row input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--white);
+    font-size: 13px;
+    font-family: monospace;
+  }
+  .setup-row input:focus { outline: none; border-color: var(--gold-dim); }
+  .setup-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .status-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    background: var(--mid);
+  }
+  .status-dot.connected { background: var(--green); }
+  .status-dot.error { background: var(--red); }
+  .status-text { font-size: 12px; color: var(--mid); }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 7px 14px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-gold { background: var(--gold); color: var(--bg); }
+  .btn-gold:hover { background: #d4b85c; }
+  .btn-gold:disabled { background: var(--gold-dim); cursor: not-allowed; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--light); }
+  .btn-outline:hover { border-color: var(--gold-dim); }
+  .btn-sm { padding: 5px 10px; font-size: 11px; }
+  .btn-green { background: var(--green); color: var(--bg); }
+  .btn-green:hover { background: #5ce892; }
+
+  /* ── Search ── */
+  .search-box {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .search-box input {
+    flex: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    color: var(--white);
+    font-size: 14px;
+  }
+  .search-box input:focus { outline: none; border-color: var(--gold); }
+  .search-box input::placeholder { color: var(--mid); }
+
+  /* ── Results ── */
+  .results { display: flex; flex-direction: column; gap: 10px; }
+  .book-card {
+    display: flex;
+    gap: 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    transition: border-color 0.2s;
+  }
+  .book-card:hover { border-color: var(--gold-dim); }
+  .book-cover {
+    width: 70px;
+    min-height: 100px;
+    border-radius: 4px;
+    object-fit: cover;
+    background: var(--bg3);
+    flex-shrink: 0;
+  }
+  .book-info { flex: 1; min-width: 0; }
+  .book-title { color: var(--white); font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  .book-author { color: var(--gold-dim); font-size: 12px; margin-bottom: 6px; }
+  .book-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .meta-pill {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--bg3);
+    color: var(--mid);
+    border: 1px solid var(--border);
+  }
+  .book-actions { display: flex; gap: 6px; align-items: center; }
+  .added-check { color: var(--green); font-size: 12px; font-weight: 600; }
+
+  /* ── Goodreads Import ── */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 16px;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--gold); background: var(--bg2); }
+  .drop-zone h3 { color: var(--light); font-size: 14px; margin-bottom: 4px; }
+  .drop-zone p { color: var(--mid); font-size: 12px; }
+  .import-preview {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .import-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+  .import-header h3 { font-size: 13px; color: var(--gold); }
+  .import-stats { display: flex; gap: 12px; }
+  .import-stat { font-size: 11px; }
+  .import-stat .num { font-weight: 700; }
+  .import-stat .num.green { color: var(--green); }
+  .import-stat .num.orange { color: var(--orange); }
+  .import-table {
+    width: 100%;
+    font-size: 12px;
+    border-collapse: collapse;
+  }
+  .import-table th {
+    text-align: left;
+    padding: 6px 10px;
+    color: var(--mid);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .import-table td {
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--light);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .import-table tr:hover { background: var(--bg3); }
+  .import-table .dup { color: var(--orange); }
+
+  /* ── Progress bar ── */
+  .progress-wrap { margin: 12px 0; }
+  .progress-bar {
+    height: 6px;
+    background: var(--bg3);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--gold);
+    border-radius: 3px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+  .progress-text { font-size: 11px; color: var(--mid); margin-top: 4px; }
+
+  /* ── Misc ── */
+  .empty { text-align: center; padding: 30px; color: var(--mid); font-size: 13px; }
+  .hidden { display: none !important; }
+  .loading { opacity: 0.5; pointer-events: none; }
+  .error-msg { color: var(--red); font-size: 12px; margin-top: 6px; }
+  .success-msg { color: var(--green); font-size: 12px; margin-top: 6px; }
+  .link { color: var(--gold-dim); text-decoration: underline; cursor: pointer; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>📚 BOOK CLIPPER</h1>
+  <p>Search · Add · Import — powered by The Bookworm's HQ</p>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" data-tab="search" onclick="switchTab('search')">🔍 Search & Add</div>
+  <div class="tab" data-tab="import" onclick="switchTab('import')">📥 Goodreads Import</div>
+  <div class="tab" data-tab="setup" onclick="switchTab('setup')">⚙️ Setup</div>
+</div>
+
+<!-- ═══ TAB: SEARCH ═══ -->
+<div id="tab-search" class="tab-content active">
+  <!-- Connection status -->
+  <div id="search-status" class="setup-banner hidden">
+    <h3>⚙️ Connect Your Notion First</h3>
+    <p>Go to the <span class="link" onclick="switchTab('setup')">Setup tab</span> to connect your Notion database before adding books.</p>
+  </div>
+
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Search by book title, author, or ISBN..." onkeydown="if(event.key==='Enter') searchBooks()">
+    <button class="btn btn-gold" onclick="searchBooks()">Search</button>
+  </div>
+
+  <div id="searchResults" class="results">
+    <div class="empty">Type a book title or ISBN to search 100M+ books</div>
+  </div>
+</div>
+
+<!-- ═══ TAB: GOODREADS IMPORT ═══ -->
+<div id="tab-import" class="tab-content">
+  <div id="import-status" class="setup-banner hidden">
+    <h3>⚙️ Connect Your Notion First</h3>
+    <p>Go to the <span class="link" onclick="switchTab('setup')">Setup tab</span> to connect your Notion database before importing.</p>
+  </div>
+
+  <!-- Drop zone -->
+  <div id="dropZone" class="drop-zone" onclick="document.getElementById('csvFile').click()">
+    <h3>Drop your Goodreads CSV here</h3>
+    <p>or click to browse · Export from goodreads.com/review/import</p>
+    <input type="file" id="csvFile" accept=".csv" class="hidden" onchange="handleCSV(event)">
+  </div>
+
+  <!-- Preview (hidden until CSV loaded) -->
+  <div id="importPreview" class="hidden">
+    <div class="import-preview">
+      <div class="import-header">
+        <h3>📋 Import Preview</h3>
+        <div class="import-stats">
+          <span class="import-stat"><span id="newCount" class="num green">0</span> new</span>
+          <span class="import-stat"><span id="dupCount" class="num orange">0</span> duplicates</span>
+          <span class="import-stat"><span id="totalCount" class="num">0</span> total</span>
+        </div>
+      </div>
+      <div style="max-height: 300px; overflow-y: auto;">
+        <table class="import-table">
+          <thead>
+            <tr><th>Title</th><th>Author</th><th>Rating</th><th>Status</th><th>Pages</th></tr>
+          </thead>
+          <tbody id="importTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <button class="btn btn-green" id="importBtn" onclick="startImport()">Import to Notion</button>
+      <button class="btn btn-outline" onclick="resetImport()">Clear</button>
+      <span id="importMsg" class="success-msg"></span>
+    </div>
+
+    <div id="importProgress" class="progress-wrap hidden">
+      <div class="progress-bar"><div id="importFill" class="progress-fill"></div></div>
+      <div id="importProgressText" class="progress-text">Importing...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB: SETUP ═══ -->
+<div id="tab-setup" class="tab-content">
+  <div class="setup-banner">
+    <h3>🔗 Connect to Notion</h3>
+    <p>
+      <strong>Step 1:</strong> Go to <a href="https://www.notion.so/profile/integrations/internal" target="_blank" style="color:var(--gold)">notion.so/profile/integrations</a> → Click the <strong>"Internal integrations"</strong> tab → <strong>"+ New integration"</strong> → Name it "Book Clipper", select your workspace, skip everything else → Click Save → Copy the <strong>Internal Integration Secret</strong> (click Show, then Copy).<br>
+      <strong>Step 2:</strong> Open 📚 <strong>My Library</strong> database as a full page → Click <strong>⋯</strong> (top right) → Scroll down and click <strong>"+ Add Connections"</strong> → Search "Book Clipper" → <strong>Confirm</strong>.<br>
+      <strong>Step 3:</strong> Paste your token and database ID below. <em>You only need to do this once — it saves automatically.</em>
+    </p>
+
+    <div class="setup-row">
+      <label>Notion Token</label>
+      <input type="password" id="notionToken" placeholder="ntn_xxxxxxxxxxxx">
+    </div>
+    <div class="setup-row">
+      <label>Database ID</label>
+      <input type="text" id="databaseId" placeholder="c5ca8378359c4f13ab0ccff9fe6544e3">
+    </div>
+
+    <p style="font-size: 11px; color: var(--mid); margin-top: 6px;">
+      💡 To find your Database ID: open My Library as a full page → click <strong>⋯</strong> → <strong>Copy link</strong> → paste it anywhere → the 32-character string before <code>?v=</code> is the ID.
+    </p>
+
+    <div class="setup-actions">
+      <button class="btn btn-gold" onclick="saveSetup()">Save & Test Connection</button>
+      <button class="btn btn-outline" onclick="clearSetup()">Clear</button>
+      <span style="display: flex; align-items: center; margin-left: 8px;">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText" class="status-text">Not connected</span>
+      </span>
+    </div>
+    <div id="setupError" class="error-msg hidden"></div>
+  </div>
+
+  <!-- Fix Covers Section -->
+  <div class="setup-banner" style="margin-top: 16px;">
+    <h3>🖼️ Fix Missing Covers</h3>
+    <p>
+      Scan your library and add cover images to any books that are missing them. This uses Open Library and Google Books to find the best cover, and sets both the page banner and Cover property.
+    </p>
+    <div class="setup-actions">
+      <button class="btn btn-gold" onclick="fixCovers()" id="fixCoversBtn">Scan & Fix Covers</button>
+      <span id="fixCoversStatus" style="margin-left: 8px; font-size: 12px; color: var(--mid);"></span>
+    </div>
+    <div id="fixCoversResult" class="hidden" style="margin-top: 10px; font-size: 12px; color: var(--mid);"></div>
+  </div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────
+// Update this after deploying the Cloudflare Worker
+const WORKER_URL = "https://book-clipper.notiongkstudio.workers.dev";
+const OPEN_LIBRARY_COVER = "https://covers.openlibrary.org/b/isbn";
+
+// ── Storage helper (localStorage blocked in Notion embeds) ───────────────
+function storageGet(key) {
+  try { return localStorage.getItem(key); } catch(e) { return null; }
+}
+function storageSet(key, val) {
+  try { localStorage.setItem(key, val); } catch(e) { /* iframe — memory only */ }
+}
+function storageRemove(key) {
+  try { localStorage.removeItem(key); } catch(e) {}
+}
+
+// ── State ─────────────────────────────────────────────────────────────────
+let notionToken = storageGet("bc_token") || "";
+let databaseId = storageGet("bc_db_id") || "";
+let isConnected = false;
+let parsedBooks = [];
+let addedBooks = new Set(); // track books added this session
+
+// ── Detect iframe (Notion embed) ─────────────────────────────────────────
+const isEmbed = window.self !== window.top;
+
+// ── Init ──────────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("notionToken").value = notionToken;
+  document.getElementById("databaseId").value = databaseId;
+  if (notionToken && databaseId) validateConnection(true);
+  updateConnectionUI();
+
+  // Show embed notice if inside iframe and no saved credentials
+  if (isEmbed && !notionToken) {
+    const notice = document.getElementById("search-status");
+    if (notice) {
+      notice.innerHTML = '<h3>⚙️ Connect Your Notion First</h3>' +
+        '<p>Go to the <span class="link" onclick="switchTab(\'setup\')">Setup tab</span> and enter your token + database ID. ' +
+        '<br><span style="color:var(--mid);font-size:12px">Inside Notion embeds, your browser cannot save credentials — you\'ll need to re-enter them if you reload.</span></p>';
+    }
+  }
+
+  // Drag & drop
+  const dz = document.getElementById("dropZone");
+  dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("dragover"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+  dz.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dz.classList.remove("dragover");
+    if (e.dataTransfer.files.length) {
+      document.getElementById("csvFile").files = e.dataTransfer.files;
+      handleCSV({ target: { files: e.dataTransfer.files } });
+    }
+  });
+});
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach((t) => t.classList.remove("active"));
+  document.querySelector(`.tab[data-tab="${tab}"]`).classList.add("active");
+  document.getElementById(`tab-${tab}`).classList.add("active");
+}
+
+// ── Setup ─────────────────────────────────────────────────────────────────
+function saveSetup() {
+  notionToken = document.getElementById("notionToken").value.trim();
+  databaseId = document.getElementById("databaseId").value.trim();
+
+  // Clean database ID — extract from URL if pasted
+  const dbMatch = databaseId.match(/([a-f0-9]{32})/);
+  if (dbMatch) databaseId = dbMatch[1];
+
+  if (!notionToken || !databaseId) {
+    showSetupError("Please enter both your Notion token and database ID.");
+    return;
+  }
+
+  storageSet("bc_token", notionToken);
+  storageSet("bc_db_id", databaseId);
+  validateConnection();
+}
+
+function clearSetup() {
+  storageRemove("bc_token");
+  storageRemove("bc_db_id");
+  notionToken = "";
+  databaseId = "";
+  isConnected = false;
+  document.getElementById("notionToken").value = "";
+  document.getElementById("databaseId").value = "";
+  updateConnectionUI();
+}
+
+async function fixCovers() {
+  if (!notionToken || !databaseId) {
+    document.getElementById("fixCoversStatus").textContent = "⚠️ Connect to Notion first";
+    return;
+  }
+  const btn = document.getElementById("fixCoversBtn");
+  const status = document.getElementById("fixCoversStatus");
+  const result = document.getElementById("fixCoversResult");
+  btn.disabled = true;
+  btn.textContent = "Scanning...";
+  status.textContent = "Checking all books for missing covers...";
+  result.classList.add("hidden");
+
+  try {
+    const res = await fetch(`${WORKER_URL}/api/fix-covers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notion_token: notionToken, database_id: databaseId }),
+    });
+    const data = await res.json();
+
+    if (data.error) throw new Error(data.error);
+
+    status.textContent = `✅ Done! ${data.updated || 0} covers added, ${data.failed || 0} failed.`;
+    if (data.details && data.details.length > 0) {
+      result.innerHTML = data.details.map(d =>
+        `<div style="margin: 2px 0;">${d.status === "updated" ? "✅" : d.status === "no_cover_found" ? "⚠️" : "❌"} ${d.title} — ${d.status}${d.error ? ": " + d.error : ""}</div>`
+      ).join("");
+      result.classList.remove("hidden");
+    }
+  } catch (err) {
+    status.textContent = `❌ Error: ${err.message}`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = "Scan & Fix Covers";
+}
+
+async function validateConnection(silent = false) {
+  const dot = document.getElementById("statusDot");
+  const text = document.getElementById("statusText");
+  dot.className = "status-dot";
+  text.textContent = "Connecting...";
+  hideSetupError();
+
+  try {
+    const res = await fetch(`${WORKER_URL}/api/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notion_token: notionToken, database_id: databaseId }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      isConnected = true;
+      dot.className = "status-dot connected";
+      text.textContent = `Connected · ${data.database_name} (${data.property_count} properties)`;
+    } else {
+      throw new Error(data.error || "Connection failed");
+    }
+  } catch (err) {
+    isConnected = false;
+    dot.className = "status-dot error";
+    const msg = err.message || "Connection failed";
+    const isTokenIssue = msg.toLowerCase().includes("token") || msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("invalid");
+    text.textContent = isTokenIssue ? "Token invalid — see below" : "Connection failed";
+    if (!silent) {
+      if (isTokenIssue) {
+        showSetupError("Your Notion token appears to be invalid or expired. Notion tokens don't expire on their own, but if you regenerated it, the old one stops working. Go to notion.so/profile/integrations → open your integration → click 'Show' next to the secret → copy the new token and paste it above.");
+      } else {
+        showSetupError(msg);
+      }
+    }
+  }
+  updateConnectionUI();
+}
+
+function updateConnectionUI() {
+  const searchStatus = document.getElementById("search-status");
+  const importStatus = document.getElementById("import-status");
+  if (isConnected) {
+    searchStatus.classList.add("hidden");
+    importStatus.classList.add("hidden");
+  } else {
+    searchStatus.classList.remove("hidden");
+    importStatus.classList.remove("hidden");
+  }
+}
+
+function showSetupError(msg) {
+  const el = document.getElementById("setupError");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+}
+
+function hideSetupError() {
+  document.getElementById("setupError").classList.add("hidden");
+}
+
+// ── Book Search ──────────────────────────────────────────────────────────
+async function searchBooks() {
+  const query = document.getElementById("searchInput").value.trim();
+  if (!query) return;
+
+  const container = document.getElementById("searchResults");
+  container.innerHTML = '<div class="empty">Searching...</div>';
+
+  try {
+    const res = await fetch(`${WORKER_URL}/api/search-books?q=${encodeURIComponent(query)}&maxResults=8`);
+
+    if (res.status === 429) {
+      container.innerHTML = '<div class="empty">Google Books API rate limit reached. Please wait a minute and try again.</div>';
+      return;
+    }
+
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    if (!data.items || data.items.length === 0) {
+      container.innerHTML = '<div class="empty">No books found. Try a different search.</div>';
+      return;
+    }
+
+    container.innerHTML = "";
+    for (const item of data.items) {
+      const vol = item.volumeInfo;
+      container.appendChild(createBookCard(vol, item.id));
+    }
+  } catch (err) {
+    container.innerHTML = `<div class="empty">Search failed: ${err.message}</div>`;
+  }
+}
+
+function createBookCard(vol, googleId) {
+  const card = document.createElement("div");
+  card.className = "book-card";
+  card.id = `card-${googleId}`;
+
+  const coverUrl = vol.imageLinks?.thumbnail?.replace("http:", "https:") || "";
+  const isbn = getISBN(vol.industryIdentifiers);
+  const olCover = isbn ? `${OPEN_LIBRARY_COVER}/${isbn}-M.jpg` : "";
+  const year = extractYear(vol.publishedDate);
+  const genres = mapGenresClient(vol.categories);
+
+  card.innerHTML = `
+    <img class="book-cover" src="${coverUrl || olCover || ''}"
+         onerror="this.src='${olCover || ''}'; this.onerror=null;"
+         alt="${vol.title || ''}">
+    <div class="book-info">
+      <div class="book-title">${escHtml(vol.title || "Untitled")}</div>
+      <div class="book-author">${escHtml(vol.authors?.[0] || "Unknown Author")}</div>
+      <div class="book-meta">
+        ${year ? `<span class="meta-pill">${year}</span>` : ""}
+        ${vol.pageCount ? `<span class="meta-pill">${vol.pageCount} pages</span>` : ""}
+        ${genres.map(g => `<span class="meta-pill">${g}</span>`).join("")}
+        ${isbn ? `<span class="meta-pill">ISBN ${isbn}</span>` : ""}
+      </div>
+      <div class="book-actions" id="actions-${googleId}">
+        <button class="btn btn-green btn-sm" onclick="addBook('${googleId}', this)" ${!isConnected ? 'disabled title="Connect Notion first"' : ''}>
+          Add to My Library
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Store book data on the element for later use
+  card.dataset.bookData = JSON.stringify({
+    title: vol.title,
+    author: vol.authors?.[0] || "",
+    isbn: isbn,
+    pages: vol.pageCount || null,
+    publisher: vol.publisher || "",
+    publishedYear: year,
+    genres: genres,
+    language: LANG_MAP_CLIENT[vol.language] || null,
+    coverUrl: coverUrl || olCover || "",
+    status: "Want to Read",
+  });
+
+  return card;
+}
+
+async function addBook(googleId, btn) {
+  if (!isConnected) {
+    alert("Please connect your Notion database first.\nGo to the Setup tab and enter your token + database ID.");
+    switchTab("setup");
+    return;
+  }
+
+  const card = document.getElementById(`card-${googleId}`);
+  const bookData = JSON.parse(card.dataset.bookData);
+
+  btn.disabled = true;
+  btn.textContent = "Adding...";
+
+  try {
+    const res = await fetch(`${WORKER_URL}/api/add-book`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        notion_token: notionToken,
+        database_id: databaseId,
+        book_data: bookData,
+      }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      const actions = document.getElementById(`actions-${googleId}`);
+      actions.innerHTML = '<span class="added-check">✓ Added to library</span>';
+      addedBooks.add(bookData.title);
+    } else {
+      throw new Error(data.error || "Failed to add");
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = "Retry";
+    btn.insertAdjacentHTML("afterend", `<span class="error-msg" style="margin-left:6px">${escHtml(err.message)}</span>`);
+  }
+}
+
+// ── Goodreads CSV Import ─────────────────────────────────────────────────
+const SHELF_MAP = {
+  read: "Finished",
+  "currently-reading": "Currently Reading",
+  "to-read": "Want to Read",
+};
+
+const FORMAT_MAP = {
+  Paperback: "📕 Physical",
+  Hardcover: "📕 Physical",
+  "Mass Market Paperback": "📕 Physical",
+  Kindle: "📱 eBook",
+  "Kindle Edition": "📱 eBook",
+  ebook: "📱 eBook",
+  Audible: "🎧 Audiobook",
+  "Audio CD": "🎧 Audiobook",
+  Audiobook: "🎧 Audiobook",
+};
+
+const STAR_MAP_CLIENT = { 1: "⭐", 2: "⭐⭐", 3: "⭐⭐⭐", 4: "⭐⭐⭐⭐", 5: "⭐⭐⭐⭐⭐" };
+
+function handleCSV(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      parsedBooks = results.data
+        .filter((r) => r.Title && r.Title.trim())
+        .map((r) => ({
+          title: r.Title?.trim() || "",
+          author: r.Author?.trim() || "",
+          isbn: cleanISBN(r.ISBN13 || r.ISBN || ""),
+          pages: parseInt(r["Number of Pages"]) || null,
+          publisher: r.Publisher?.trim() || "",
+          publishedYear: parseInt(r["Year Published"]) || null,
+          rating: parseInt(r["My Rating"]) || 0,
+          status: SHELF_MAP[r["Exclusive Shelf"]?.trim()] || "Want to Read",
+          review: r["My Review"]?.trim() || "",
+          startDate: parseDate(r["Date Added"]),
+          finishDate: parseDate(r["Date Read"]),
+          format: FORMAT_MAP[r.Binding?.trim()] || null,
+          coverUrl: r.ISBN13 ? `${OPEN_LIBRARY_COVER}/${cleanISBN(r.ISBN13)}-M.jpg` : "",
+          goodreadsUrl: r["Book Id"] ? `https://www.goodreads.com/book/show/${r["Book Id"].trim()}` : "",
+          _isDuplicate: false,
+        }));
+
+      showImportPreview();
+    },
+    error: (err) => {
+      alert("Failed to parse CSV: " + err.message);
+    },
+  });
+}
+
+function cleanISBN(raw) {
+  return raw.replace(/[="]/g, "").trim();
+}
+
+function parseDate(str) {
+  if (!str) return null;
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString().split("T")[0];
+}
+
+async function showImportPreview() {
+  document.getElementById("dropZone").classList.add("hidden");
+  document.getElementById("importPreview").classList.remove("hidden");
+
+  // Check duplicates if connected
+  if (isConnected && parsedBooks.length > 0) {
+    try {
+      const res = await fetch(`${WORKER_URL}/api/check-duplicates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notion_token: notionToken,
+          database_id: databaseId,
+          titles: parsedBooks.map((b) => b.title),
+        }),
+      });
+      const data = await res.json();
+      if (data.duplicates) {
+        const dupSet = new Set(data.duplicates.map((d) => d.toLowerCase().trim()));
+        parsedBooks.forEach((b) => {
+          b._isDuplicate = dupSet.has(b.title.toLowerCase().trim());
+        });
+      }
+    } catch (err) {
+      console.warn("Duplicate check failed:", err);
+    }
+  }
+
+  // Update stats
+  const dups = parsedBooks.filter((b) => b._isDuplicate).length;
+  document.getElementById("totalCount").textContent = parsedBooks.length;
+  document.getElementById("newCount").textContent = parsedBooks.length - dups;
+  document.getElementById("dupCount").textContent = dups;
+
+  // Populate table
+  const tbody = document.getElementById("importTableBody");
+  tbody.innerHTML = "";
+  for (const book of parsedBooks.slice(0, 100)) {
+    const tr = document.createElement("tr");
+    if (book._isDuplicate) tr.className = "dup";
+    tr.innerHTML = `
+      <td>${escHtml(book.title)}${book._isDuplicate ? ' <span style="color:var(--orange);font-size:10px">DUP</span>' : ""}</td>
+      <td>${escHtml(book.author)}</td>
+      <td>${book.rating ? STAR_MAP_CLIENT[book.rating] || "" : "—"}</td>
+      <td>${escHtml(book.status)}</td>
+      <td>${book.pages || "—"}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+async function startImport() {
+  if (!isConnected) { switchTab("setup"); return; }
+
+  const booksToImport = parsedBooks.filter((b) => !b._isDuplicate);
+  if (booksToImport.length === 0) {
+    document.getElementById("importMsg").textContent = "All books already in your library!";
+    return;
+  }
+
+  const btn = document.getElementById("importBtn");
+  btn.disabled = true;
+  document.getElementById("importProgress").classList.remove("hidden");
+
+  let created = 0;
+  let failed = 0;
+  const batchSize = 10;
+
+  for (let i = 0; i < booksToImport.length; i += batchSize) {
+    const batch = booksToImport.slice(i, i + batchSize);
+
+    try {
+      const res = await fetch(`${WORKER_URL}/api/import-batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notion_token: notionToken,
+          database_id: databaseId,
+          books: batch,
+        }),
+      });
+      const data = await res.json();
+      created += data.created || 0;
+      failed += data.failed || 0;
+    } catch {
+      failed += batch.length;
+    }
+
+    // Update progress
+    const progress = Math.min(((i + batchSize) / booksToImport.length) * 100, 100);
+    document.getElementById("importFill").style.width = progress + "%";
+    document.getElementById("importProgressText").textContent =
+      `${created + failed} / ${booksToImport.length} processed · ${created} added · ${failed} failed`;
+  }
+
+  document.getElementById("importFill").style.width = "100%";
+  document.getElementById("importProgressText").textContent =
+    `Done! ${created} books added, ${failed} failed, ${parsedBooks.length - booksToImport.length} skipped (duplicates)`;
+  document.getElementById("importMsg").textContent = "✓ Import complete!";
+  btn.disabled = false;
+  btn.textContent = "Import Again";
+}
+
+function resetImport() {
+  parsedBooks = [];
+  document.getElementById("importPreview").classList.add("hidden");
+  document.getElementById("dropZone").classList.remove("hidden");
+  document.getElementById("importProgress").classList.add("hidden");
+  document.getElementById("importMsg").textContent = "";
+  document.getElementById("importBtn").textContent = "Import to Notion";
+  document.getElementById("importBtn").disabled = false;
+  document.getElementById("csvFile").value = "";
+}
+
+// ── Utilities ────────────────────────────────────────────────────────────
+function escHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function extractYear(dateStr) {
+  if (!dateStr) return null;
+  const m = dateStr.match(/(\d{4})/);
+  return m ? parseInt(m[1]) : null;
+}
+
+function getISBN(identifiers) {
+  if (!identifiers) return "";
+  const isbn13 = identifiers.find((i) => i.type === "ISBN_13");
+  const isbn10 = identifiers.find((i) => i.type === "ISBN_10");
+  return isbn13?.identifier || isbn10?.identifier || "";
+}
+
+const LANG_MAP_CLIENT = { en: "English", es: "Spanish", fr: "French", de: "German", ja: "Japanese", zh: "Chinese" };
+
+const GENRE_MAP_CLIENT = {
+  fiction: "Fiction", "literary fiction": "Fiction", "science fiction": "Sci-Fi",
+  fantasy: "Fantasy", mystery: "Mystery", detective: "Mystery", crime: "Mystery",
+  romance: "Romance", horror: "Horror", thriller: "Thriller", suspense: "Thriller",
+  history: "Historical", "historical fiction": "Historical", biography: "Biography",
+  autobiography: "Biography", memoir: "Biography", "self-help": "Self-Help",
+  poetry: "Poetry", comics: "Graphic Novel", "graphic novels": "Graphic Novel",
+  classics: "Classic", nonfiction: "Non-Fiction", "non-fiction": "Non-Fiction",
+  science: "Non-Fiction", philosophy: "Non-Fiction",
+};
+
+function mapGenresClient(categories) {
+  if (!categories) return [];
+  const mapped = new Set();
+  for (const cat of categories) {
+    const lower = cat.toLowerCase().trim();
+    if (GENRE_MAP_CLIENT[lower]) mapped.add(GENRE_MAP_CLIENT[lower]);
+    else {
+      for (const [k, v] of Object.entries(GENRE_MAP_CLIENT)) {
+        if (lower.includes(k)) { mapped.add(v); break; }
+      }
+    }
+  }
+  return [...mapped].slice(0, 3);
+}
+</script>
+</body>
+</html>
